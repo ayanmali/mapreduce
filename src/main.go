@@ -11,6 +11,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -26,14 +27,13 @@ func Map(key string, value string) {
 		// emit intermediate KV pair
 		MapEmit(word, 1)
 	}
-	//return key, value
 }
 
 func MapEmit[K, V any](intermediateKey K, intermediateValue V) {
 	intermediateBuffer = append(intermediateBuffer, Pair{intermediateKey, intermediateValue})
 }
 
-func GroupByKey() map[any][]any {
+func groupByKey() map[any][]any {
 	grouped := make(map[any][]any)
 	for _, pair := range intermediateBuffer {
 		_, present := grouped[pair.first]
@@ -47,9 +47,21 @@ func GroupByKey() map[any][]any {
 
 }
 
-// func Reduce[K, V any](key K, values []V) any {
-// 	return values[0]
-// }
+func Reduce(key any, iter []any) {
+	count := 0
+	for _, value := range iter {
+		i, ok := value.(int)
+		if !ok {
+			log.Fatalf("Type assertion failed: value is not an int")
+		}
+		count += i
+	}
+	ReduceEmit(key, count)
+}
+
+func ReduceEmit(key any, result any) {
+	fmt.Println(key, result)
+}
 
 func main() {
 	database := map[string]string{
@@ -64,7 +76,10 @@ func main() {
 	fmt.Println("Intermediate buffer:")
 	fmt.Println(intermediateBuffer)
 	fmt.Println("Grouped:")
-	grouped := GroupByKey()
+	grouped := groupByKey()
 	fmt.Println(grouped)
+	for key, iter := range grouped {
+		Reduce(key, iter)
+	}
 
 }
