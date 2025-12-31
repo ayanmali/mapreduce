@@ -1,0 +1,21 @@
+syntax = "proto3";
+option go_package = "./mapreduce";
+
+package mapreduce;
+
+service MapReduce {
+    rpc InvokeMapTask(MapRequest) returns (Result) {}
+    rpc InvokeReduceTask(ReduceRequest) returns (Result) {}
+}
+
+message MapRequest {
+    int32 num = 1;
+}
+
+message ReduceRequest {
+    int32 num = 1;
+}
+
+message Result {
+    string errorMessage = 1;
+}

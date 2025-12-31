@@ -7,7 +7,7 @@ All intermediate values associated w/ same intermediate key and passes them to t
 
 Reduce - accepts an intermediate key and an iterator of all values for that key. These values are merged together to form an output.
 */
-package main
+package mapreduce
 
 import (
 	"fmt"
@@ -70,8 +70,8 @@ func main() {
 		"file3": "grape apple banana banana banana banana banana",
 	}
 
-	for filename, document := range database {
-		Map(filename, document)
+	for k, v := range database {
+		Map(k, v)
 	}
 	fmt.Println("Intermediate buffer:")
 	fmt.Println(intermediateBuffer)
