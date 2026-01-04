@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.2
-// source: src/service.proto
+// source: src/rpc/service.proto
 
-package mapreduce
+package rpc
 
 import (
 	context "context"
@@ -19,8 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MapReduce_InvokeMapTask_FullMethodName    = "/mapreduce.MapReduce/InvokeMapTask"
-	MapReduce_InvokeReduceTask_FullMethodName = "/mapreduce.MapReduce/InvokeReduceTask"
+	MapReduce_InvokeMapTask_FullMethodName       = "/rpc.MapReduce/InvokeMapTask"
+	MapReduce_InvokeReduceTask_FullMethodName    = "/rpc.MapReduce/InvokeReduceTask"
+	MapReduce_ReportTaskProgress_FullMethodName  = "/rpc.MapReduce/ReportTaskProgress"
+	MapReduce_GetIntermediateData_FullMethodName = "/rpc.MapReduce/GetIntermediateData"
 )
 
 // MapReduceClient is the client API for MapReduce service.
@@ -29,6 +31,8 @@ const (
 type MapReduceClient interface {
 	InvokeMapTask(ctx context.Context, in *MapRequest, opts ...grpc.CallOption) (*Result, error)
 	InvokeReduceTask(ctx context.Context, in *ReduceRequest, opts ...grpc.CallOption) (*Result, error)
+	ReportTaskProgress(ctx context.Context, in *TaskProgress, opts ...grpc.CallOption) (*Ack, error)
+	GetIntermediateData(ctx context.Context, in *IntermediateDataRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[IntermediateDataChunk], error)
 }
 
 type mapReduceClient struct {
@@ -59,12 +63,43 @@ func (c *mapReduceClient) InvokeReduceTask(ctx context.Context, in *ReduceReques
 	return out, nil
 }
 
+func (c *mapReduceClient) ReportTaskProgress(ctx context.Context, in *TaskProgress, opts ...grpc.CallOption) (*Ack, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, MapReduce_ReportTaskProgress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mapReduceClient) GetIntermediateData(ctx context.Context, in *IntermediateDataRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[IntermediateDataChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &MapReduce_ServiceDesc.Streams[0], MapReduce_GetIntermediateData_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[IntermediateDataRequest, IntermediateDataChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MapReduce_GetIntermediateDataClient = grpc.ServerStreamingClient[IntermediateDataChunk]
+
 // MapReduceServer is the server API for MapReduce service.
 // All implementations must embed UnimplementedMapReduceServer
 // for forward compatibility.
 type MapReduceServer interface {
 	InvokeMapTask(context.Context, *MapRequest) (*Result, error)
 	InvokeReduceTask(context.Context, *ReduceRequest) (*Result, error)
+	ReportTaskProgress(context.Context, *TaskProgress) (*Ack, error)
+	GetIntermediateData(*IntermediateDataRequest, grpc.ServerStreamingServer[IntermediateDataChunk]) error
 	mustEmbedUnimplementedMapReduceServer()
 }
 
@@ -80,6 +115,12 @@ func (UnimplementedMapReduceServer) InvokeMapTask(context.Context, *MapRequest) 
 }
 func (UnimplementedMapReduceServer) InvokeReduceTask(context.Context, *ReduceRequest) (*Result, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InvokeReduceTask not implemented")
+}
+func (UnimplementedMapReduceServer) ReportTaskProgress(context.Context, *TaskProgress) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReportTaskProgress not implemented")
+}
+func (UnimplementedMapReduceServer) GetIntermediateData(*IntermediateDataRequest, grpc.ServerStreamingServer[IntermediateDataChunk]) error {
+	return status.Errorf(codes.Unimplemented, "method GetIntermediateData not implemented")
 }
 func (UnimplementedMapReduceServer) mustEmbedUnimplementedMapReduceServer() {}
 func (UnimplementedMapReduceServer) testEmbeddedByValue()                   {}
@@ -138,11 +179,40 @@ func _MapReduce_InvokeReduceTask_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MapReduce_ReportTaskProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TaskProgress)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MapReduceServer).ReportTaskProgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MapReduce_ReportTaskProgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MapReduceServer).ReportTaskProgress(ctx, req.(*TaskProgress))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MapReduce_GetIntermediateData_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(IntermediateDataRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MapReduceServer).GetIntermediateData(m, &grpc.GenericServerStream[IntermediateDataRequest, IntermediateDataChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MapReduce_GetIntermediateDataServer = grpc.ServerStreamingServer[IntermediateDataChunk]
+
 // MapReduce_ServiceDesc is the grpc.ServiceDesc for MapReduce service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var MapReduce_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "mapreduce.MapReduce",
+	ServiceName: "rpc.MapReduce",
 	HandlerType: (*MapReduceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -153,7 +223,17 @@ var MapReduce_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "InvokeReduceTask",
 			Handler:    _MapReduce_InvokeReduceTask_Handler,
 		},
+		{
+			MethodName: "ReportTaskProgress",
+			Handler:    _MapReduce_ReportTaskProgress_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "src/service.proto",
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetIntermediateData",
+			Handler:       _MapReduce_GetIntermediateData_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "src/rpc/service.proto",
 }

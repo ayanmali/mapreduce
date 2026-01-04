@@ -1,21 +1,81 @@
 syntax = "proto3";
-option go_package = "./mapreduce";
+option go_package = "./rpc";
 
-package mapreduce;
+package rpc;
 
 service MapReduce {
     rpc InvokeMapTask(MapRequest) returns (Result) {}
     rpc InvokeReduceTask(ReduceRequest) returns (Result) {}
+    rpc ReportTaskProgress(TaskProgress) returns (Ack) {}
+    rpc GetIntermediateData(IntermediateDataRequest) returns (stream IntermediateDataChunk) {}
 }
 
+// Map Task Request - sends chunk metadata
 message MapRequest {
-    int32 num = 1;
+    string task_id = 1;
+    string bucket = 2;
+    string object_key = 3;
+    int64 byte_offset = 4;
+    int64 byte_length = 5;
+    int32 num_reduce_tasks = 6;
 }
 
+// Reduce Task Request - sends intermediate data locations
 message ReduceRequest {
-    int32 num = 1;
+    string task_id = 1;
+    int32 partition_id = 2;
+    repeated IntermediateLocation input_locations = 3;
+    string bucket = 4;
+    string output_key = 5;
 }
 
+// Location of intermediate data on a worker's local disk
+message IntermediateLocation {
+    string worker_id = 1;
+    string worker_address = 2;
+    string file_path = 3;  // local path on worker
+}
+
+// Task result with detailed status
 message Result {
-    string errorMessage = 1;
+    string task_id = 1;
+    TaskStatus status = 2;
+    string error_message = 3;
+    repeated IntermediateFileInfo intermediate_files = 4;
+    int64 records_processed = 5;
+}
+
+// Information about intermediate files produced by Map tasks
+message IntermediateFileInfo {
+    int32 partition_id = 1;
+    string file_path = 2;
+}
+
+// Worker heartbeat/progress reporting
+message TaskProgress {
+    string task_id = 1;
+    string worker_id = 2;
+    int64 bytes_processed = 3;
+}
+
+// Acknowledgment message
+message Ack {
+    bool acknowledged = 1;
+}
+
+// Request to get intermediate data from a worker
+message IntermediateDataRequest {
+    string file_path = 1;
+}
+
+// Streamed chunk of intermediate data
+message IntermediateDataChunk {
+    bytes data = 1;
+    bool is_last = 2;
+}
+
+// Task execution status
+enum TaskStatus {
+    SUCCESS = 0;
+    FAILED = 1;
 }

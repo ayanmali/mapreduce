@@ -16,8 +16,8 @@ import (
 )
 
 type Pair struct {
-	first  any
-	second any
+	First  any `json:"first"`
+	Second any `json:"second"`
 }
 
 var intermediateBuffer = make([]Pair, 0)
@@ -36,11 +36,11 @@ func MapEmit[K, V any](intermediateKey K, intermediateValue V) {
 func groupByKey() map[any][]any {
 	grouped := make(map[any][]any)
 	for _, pair := range intermediateBuffer {
-		_, present := grouped[pair.first]
+		_, present := grouped[pair.First]
 		if present {
-			grouped[pair.first] = append(grouped[pair.first], pair.second)
+			grouped[pair.First] = append(grouped[pair.First], pair.Second)
 		} else {
-			grouped[pair.first] = []any{pair.second}
+			grouped[pair.First] = []any{pair.Second}
 		}
 	}
 	return grouped
@@ -61,6 +61,34 @@ func Reduce(key any, iter []any) {
 
 func ReduceEmit(key any, result any) {
 	fmt.Println(key, result)
+}
+
+// ClearIntermediateBuffer clears the intermediate buffer
+func ClearIntermediateBuffer() {
+	intermediateBuffer = make([]Pair, 0)
+}
+
+// GetIntermediateBuffer returns the current intermediate buffer
+func GetIntermediateBuffer() []Pair {
+	return intermediateBuffer
+}
+
+// SetIntermediateBuffer sets the intermediate buffer to the given value
+func SetIntermediateBuffer(buffer []Pair) {
+	intermediateBuffer = buffer
+}
+
+// ReduceToValue performs reduction and returns the result instead of emitting
+func ReduceToValue(key any, iter []any) any {
+	count := 0
+	for _, value := range iter {
+		i, ok := value.(int)
+		if !ok {
+			log.Fatalf("Type assertion failed: value is not an int")
+		}
+		count += i
+	}
+	return count
 }
 
 func main() {
